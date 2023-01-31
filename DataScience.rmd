@@ -1,0 +1,324 @@
+---
+title: "Data Science Capstone - Milestone Report Wk2"
+author: "Emmanuel Benyeogor"
+date: "2023-01-03"
+output: 
+  html_document:
+      toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+This is a report of an exploratory analysis, goals for an eventual app and algorithm. It is in completion of Data Science Capstone Project on [coursera](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) <https://www.coursera.org/learn/data-science-project/home/welcome>.
+
+## Introduction
+
+A large **training** dataset comprising of text with four languages is downloaded. The **English** database is used for the report.
+
+Aim: To familiarize with databases and do the necessary cleaning (for example offensive and profane words).
+
+Using techniques learnt we would be:
+
+1.  Identifying appropriate words, punctuation and numbers referred to as **tokens**. The is achieved through the process called **Tokenization**
+
+2.  Getting rid of profane and other words we do not want to be included in our prediction through **filtering**
+
+## Getting started - Data download and view
+
+First, we would set the working directory that is the location in our computer where file and data products would be re-posited.
+
+Then, we would download and unzip our dataset.
+
+Lastly, we would read a few lines of the data set to have a glimpse of what work needs to be done.
+
+```{r }
+# Set the working directory
+setwd("/Users/emmanuelbenyeogor/Downloads")
+
+# Create a new folder report
+folderDSC <- "Data Science Capstone"
+if (file.exists(folderDSC)) {
+  cat("The folder already exists")
+} else {
+    dir.create(folderDSC)
+  }
+
+# Download the capstone training dataset
+fileData <- "Coursera-SwiftKey.zip"
+if (file.exists(fileData)) {
+  cat("The file already exist")
+} else {
+    download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip", destfile = "./Coursera-SwiftKey.zip")
+  }
+
+#Unzip the folder
+data <- "final"
+if (file.exists(data)) {
+  cat("The file already exist")
+} else {
+    unzip("Coursera-Swiftkey.zip")
+}
+
+#Read the first line of the blog text Owing to the dataset being large
+conBlog <- file("final/en_US/en_US.blogs.txt", "rb")
+blog <- readLines(conBlog, skipNul=TRUE, encoding="UTF-8")
+close(conBlog)
+
+#Read the first line of the news text Owing to the dataset being large
+conNews <- file("final/en_US/en_US.news.txt", "rb")
+news <- readLines(conNews, skipNul=TRUE, encoding="UTF-8")
+close(conNews)
+
+#Read the first line of the twitter text Owing to the dataset being large
+conTwitter <- file("final/en_US/en_US.twitter.txt", "rb")
+twitter <- readLines(conTwitter, skipNul=TRUE, encoding="UTF-8")
+close(conTwitter)
+```
+
+## Summary statistics of dataset
+
+We would be exploring the data and teasing out summary statistics using count and frequencies of the lines, words, character and file size of the English text data we have.
+
+A couple of **library** in R need to be installed as well as packages to utilize specific functions (especially for people new to R environment or text analysis)
+
+```{r echo=TRUE}
+library(stringr)
+library(stringi)
+# The stri_stats_latex function gives LaTeX-oriented statistics for a character vector, e.g., obtained by loading a text file with the readLines function, where each text line is represented by a separate string
+
+library(knitr)
+# Required for the kable function
+
+# Number of characters per file
+noXters <- sapply(list(nchar(blog), nchar(news), nchar(twitter)), sum)
+
+# Number of lines per file
+noLines <- sapply(list(blog, news, twitter), length)
+
+# Number words per file
+noWords <- sapply(list(blog, news, twitter), stri_stats_latex) [4,]
+
+# Size of the file in MB
+fileSizeMB <- round(file.info(c("final/en_US/en_US.blogs.txt", "final/en_US/en_US.news.txt", "final/en_US/en_US.twitter.txt"))$size / 1024 ^ 2)
+
+textSummary = sapply(list(blog, news, twitter),
+                    function(x) summary(stri_count_words(x))[c('Min.', 'Mean', 'Max.')])
+rownames(textSummary) = c('Min', 'Mean', 'Max')
+
+summary <- data.frame(
+  File = c("en_US.blogs.txt", "en_US.news.txt", "en_US.twitter.txt"),
+  FileSize = paste(fileSizeMB, " MB"),
+  Lines = noLines,
+  Characters = noXters,
+  Words = noWords
+)
+
+kable(summary,
+      row.names = FALSE, "simple")
+```
+
+### Twitter
+
+We all know twitter is limited to 140 characters [@Bilal2020]. Although there comments quoting Elon Musk that this is going to be increased [@jia2022]. Nonetheless we see here that **twitter** has the most number of lines with text.
+
+### Blogs
+
+From the above we see that although **blogs** have the largest **file size, characters and words** due to larger text, image formats compared, to news and twitter.
+
+### News
+
+News has the least number of lines, characters and words.
+
+```{r Histogram, echo=TRUE}
+#histograms
+library(ggplot2)
+library(grid)
+library(gridExtra)
+
+blogCount <- stri_count_words(blog)
+newsCount <- stri_count_words(news)
+twitterCount <- stri_count_words(twitter)
+
+
+blogPlot <- qplot(blogCount,
+               geom = "histogram",
+               main = "Blogs",
+               xlab = "Amount of words",
+               ylab = "Frequency",
+               binwidth = 10)
+newsPlot <- qplot(newsCount,
+               geom = "histogram",
+               main = "News",
+               xlab = "Amount of words",
+               ylab = "Frequency",
+               binwidth = 10)
+twitterPlot <- qplot(twitterCount,
+               geom = "histogram",
+               main = "Twitter",
+               xlab = "Words per Line",
+               ylab = "Frequency",
+               binwidth = 1)
+
+plotList = list(blogPlot, newsPlot, twitterPlot)
+
+do.call(grid.arrange, c(plotList, list(ncol = 1)))
+
+```
+
+### Histogram
+
+This shows the frequency of text spead per line. Further butressing the point above.
+
+## Filtering
+
+Then we want to identify appropriate words, punctuation and numbers referred to as **tokens** and also filter profane and vulgar words so they are not included in our prediction. Just like getting rid of seeds in grapes by way of genetically modifying the plant to produce sweet grape fruits without seeds.
+
+```{r}
+# Convert natural language text into tokens. Includes tokenizers for shingled n-grams, skip n-grams, words, word stems, sentences, paragraphs, characters, shingled characters, lines, Penn Treebank, regular expressions, as well as functions for counting characters, words, and sentences, and a function for splitting longer texts into separate documents, each with the same number of words.
+library(tokenizers)
+
+# quanteda is an R package for managing and analyzing textual data developed by Kenneth Benoit, Kohei Watanabe, and other contributors. Its initial development was supported by the European Research
+library(quanteda)
+
+# set the seed
+set.seed(300)
+
+# set a sample size
+sampleSize = 30000
+
+# Data sample
+blogSample <- sample(blog, sampleSize, replace = FALSE)
+newsSample <- sample(news, sampleSize, replace = FALSE)
+twitterSample <- sample(twitter, sampleSize, replace = FALSE)
+
+# Combine all samples into one
+combinedSample <- c(blogSample, newsSample, twitterSample) 
+
+writeLines(combinedSample, "./allSample.txt")
+textCon <- file("allSample.txt")
+corpusCon <- readLines(textCon)
+close(textCon)
+rm(textCon)
+
+# Combine into single sample
+corpusAll <- corpus(corpusCon)
+
+# remove profane words 
+profaneWords <- lexicon::profanity_alvarez
+vulgarDiction <- dictionary(list(vulgarWords = profaneWords))
+CleanWords <- tokens_remove(tokens(corpusAll),vulgarDiction)
+```
+
+## Tokenization
+
+```{r Tokenization, echo=TRUE}
+# Remove numbers, punctuation, links and symbols tokenization
+library(quanteda.textstats)
+
+CleanWordz <- tokens(CleanWords, remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE, remove_url = TRUE)
+
+# Remove stop words 
+CleanWordzStop <- tokens_remove(CleanWordz,pattern = stopwords('en'))
+
+library(tidyverse)
+
+CleanWordzStop %>%
+  dfm(tolower = TRUE) %>%
+  textstat_frequency() %>%
+  ggplot(aes(x = frequency)) +
+  geom_histogram(binwidth = 1, aes(fill = "red")) +
+  theme(legend.position = "none") +
+  labs(x = "Number of word appearances", y = "Frequency") +
+  scale_y_log10()
+```
+
+In the word frequency histogram. Stopwords like **is** and **the** which would dominate the frequency, were not included. The extreme word frequency concentrations are shown by the histogram. While tens of thousands of words only appear occasionally, a very small number of words appear thousands of times.
+
+More packages are used in this analysis. For all of the NLP (tokens remove(), dfm(), textstat frequency(), etc.), I utilize quanteda routines. For graphing, I employ ggplot2 (through Tidyverse).
+
+```{r echo=TRUE}
+CleanWordzStop %>%
+  tokens_tolower %>%
+  dfm %>%
+  textstat_frequency(n = 25) %>%
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point() + 
+  coord_flip() +
+  labs(x = "Total words in sample", y = "Frequency of occurence")
+```
+
+Above is a frequency plot of the top 25 terms because I was interested in learning which words (aside from stopwords) were used the most. The word **said** came in first place with about 10,000 occurrences.
+
+```{r echo=TRUE}
+library(wordcloud)
+
+words <- textstat_frequency(dfm(CleanWordzStop, tolower= TRUE))
+wordcloud(words$feature, words$frequency, max.words = 300)
+```
+
+In the above word cloud of the randomly selected 300 words we see that **like**, **people**, **also**, **day** to mention a few are the most frequent words. Question is **said**, **one** and **just** appears to have not been selected randomly even when they are the top used words at 10,000 to show the volume of text
+
+```{r echo=TRUE}
+CleanWordz1 <- tokens_remove(CleanWordz,pattern = stopwords('en'))
+CleanWordz2 <- tokens_tolower(CleanWordz1)
+CleanWordz3 <- tokens_ngrams(CleanWordz2, n = 2)
+
+
+CleanWordzStop %>%
+  tokens_tolower %>%
+  tokens_ngrams(n = 2) %>%
+  dfm %>%
+  textstat_frequency(n = 25) %>%
+  ggplot(aes(x = reorder(feature, frequency), y = frequency)) +
+  geom_point() + 
+  coord_flip() +
+  labs(x = "2-gram words in sample", y = "Frequency of occurence")
+```
+
+The following word pairs in the graph above are the most frequent ones found in the dataset's n-grams, with **new york** and \*"right now"**last year** coming in at the top of the list. The quantity of urban references in the text below is intriguing. Any model must take these popular names into account.
+
+```{r echo=TRUE}
+# credit: jgbond/capstone-milestone
+library(quanteda.textstats)
+
+uniqueNeeds <- function(dictLength) {
+  CleanWordz %>%
+    dfm(tolower = TRUE) %>%
+    textstat_frequency(n = dictLength) -> num
+  
+  CleanWordz %>%
+    dfm(tolower = TRUE) %>%
+    textstat_frequency() -> den
+  
+  data.frame(dictLength = dictLength,
+             totalCover = sum(num$frequency) / sum(den$frequency), # Percentage of total word count covered by top N words
+             uniqueCover = dictLength / length(den$feature)) # Percentage of unique words covered by top N words
+   
+}
+
+wordCoverTable <- rbind(uniqueNeeds(10), uniqueNeeds(100),
+                        uniqueNeeds(150), uniqueNeeds(250), uniqueNeeds(500),
+                        uniqueNeeds(1000), uniqueNeeds(2000), uniqueNeeds(3000), 
+                        uniqueNeeds(4000))
+
+wordCoverPlot <- ggplot(data = wordCoverTable, aes(x = dictLength, y = totalCover)) +
+  geom_line() +
+  labs(title = "Word Coverage",
+       x = "Top N Words",
+       y = "% Total Covered by Top N Words") +
+  theme(legend.position="bottom")
+
+wordCoverTable
+```
+
+The graph above demonstrates that a dictionary of just 100 words can account for about half of all words used, stopwords included. After that, the percentage of words that are unique barely increases.
+
+A significant change occurs for unique words when the words increase by 10 fold.
+
+## Reference
+
+<https://rpubs.com/jgbond/capstone-milestone> <https://rpubs.com/KAA_2404/989475>
