@@ -1,4 +1,4 @@
-#Coursera Data Science Capstone
+Coursera Data Science Capstone
 
 Emmanuel I. Benyeogor
 
