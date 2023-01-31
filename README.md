@@ -29,4 +29,4 @@ Link to the Final project submission (Shiny App): https://xx.shinyapps.io/course
 
 Final project submission (Presentation): http://rpubs.com/xx/coursera_data_science_capstone/
 
-Source code files available on GitHub: https://github.com/chidemannie/coursera-data-science-capstone/
+Source code files available on GitHub: https://github.com/chidemannie/datasciencecousera
